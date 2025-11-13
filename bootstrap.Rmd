@@ -88,3 +88,41 @@ boot_straps =
 boot_straps
 ```
 
+```{r}
+boot_straps |> 
+  pull(bootstrap_sample) |> 
+  nth(2) |>
+  ggplot(aes(x = x, y = y)) + 
+  geom_point(alpha = .5) +
+  geom_smooth(method = "lm", se = FALSE) +
+  xlim(c(-2,4)) +
+  ylim(c(-5, 16))
+```
+
+actually run my analysis
+```{r}
+bootstrap_results = 
+  boot_straps |>
+  mutate(
+    fits = map(bootstrap_sample, \(df) lm(y ~ x, data = df)),
+    results = map(fits, broom::tidy)
+  )
+```
+
+look at result
+```{r}
+bootstrap_results |>
+  select(iter, results) |>
+  unnest(results)
+
+bootstrap_results |>
+  select(iter, results) |>
+  unnest(results) |>
+  group_by(term) |>
+  summarise(
+    mean = mean(estimate),
+    se = sd(estimate)
+  )
+```
+
+
