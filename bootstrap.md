@@ -190,3 +190,113 @@ bootstrap_results |>
     ##   <chr>       <dbl>  <dbl>
     ## 1 (Intercept)  1.94 0.0871
     ## 2 x            3.11 0.0986
+
+``` r
+bootstrap_results |>
+  select(iter, results) |>
+  unnest(results) |>
+  filter(term == "x") |>
+  ggplot(aes(x = estimate)) +
+  geom_density()
+```
+
+![](bootstrap_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
+
+``` r
+bootstrap_results |>
+  select(iter, results) |>
+  unnest(results) |>
+  group_by(term) |>
+  summarise(
+    ci_lower = quantile(estimate, 0.025),
+    ci_upper = quantile(estimate, 0.975)
+  )
+```
+
+    ## # A tibble: 2 × 3
+    ##   term        ci_lower ci_upper
+    ##   <chr>          <dbl>    <dbl>
+    ## 1 (Intercept)     1.79     2.05
+    ## 2 x               2.97     3.23
+
+## do it again but faster
+
+``` r
+sim_df_nonconst |>
+  bootstrap(n = 10) |>
+  mutate(
+    df = map(strap, as_tibble),
+    fits = map(df, \(df) lm(y ~ x, data = df)),
+    results = map(fits, broom::tidy)
+  ) |>
+  select(.id, results)|>
+  unnest(results)
+```
+
+    ## # A tibble: 20 × 6
+    ##    .id   term        estimate std.error statistic   p.value
+    ##    <chr> <chr>          <dbl>     <dbl>     <dbl>     <dbl>
+    ##  1 01    (Intercept)     2.04    0.0858      23.8 7.12e- 66
+    ##  2 01    x               2.90    0.0661      43.9 5.20e-119
+    ##  3 02    (Intercept)     2.02    0.107       18.9 6.40e- 50
+    ##  4 02    x               3.03    0.0710      42.7 2.83e-116
+    ##  5 03    (Intercept)     1.92    0.0957      20.0 8.39e- 54
+    ##  6 03    x               3.14    0.0701      44.8 7.28e-121
+    ##  7 04    (Intercept)     1.91    0.101       18.9 5.66e- 50
+    ##  8 04    x               3.12    0.0689      45.3 6.46e-122
+    ##  9 05    (Intercept)     1.94    0.0907      21.3 4.66e- 58
+    ## 10 05    x               3.08    0.0680      45.4 3.99e-122
+    ## 11 06    (Intercept)     1.95    0.110       17.7 7.92e- 46
+    ## 12 06    x               3.13    0.0767      40.9 3.88e-112
+    ## 13 07    (Intercept)     1.95    0.0908      21.5 1.22e- 58
+    ## 14 07    x               3.03    0.0670      45.3 7.12e-122
+    ## 15 08    (Intercept)     1.87    0.115       16.3 4.84e- 41
+    ## 16 08    x               3.22    0.0795      40.4 3.54e-111
+    ## 17 09    (Intercept)     1.92    0.0965      19.9 2.32e- 53
+    ## 18 09    x               3.19    0.0715      44.6 1.71e-120
+    ## 19 10    (Intercept)     2.00    0.100       20.0 1.22e- 53
+    ## 20 10    x               3.01    0.0694      43.4 8.37e-118
+
+``` r
+data("nyc_airbnb")
+
+nyc_airbnb = 
+  nyc_airbnb |> 
+  mutate(stars = review_scores_location / 2) |> 
+  rename(
+    borough = neighbourhood_group,
+    neighborhood = neighbourhood) |> 
+  filter(borough != "Staten Island") |> 
+  drop_na(price, stars) |> 
+  select(price, stars, borough, neighborhood, room_type)
+```
+
+``` r
+nyc_airbnb |> 
+  ggplot(aes(x = stars, y = price, color = room_type)) + 
+  geom_point() 
+```
+
+![](bootstrap_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->
+
+``` r
+airbnb_bootstrap_results =
+  nyc_airbnb |>
+  filter(borough == "Manhattan") |> 
+  modelr::bootstrap(n = 10) |> 
+  mutate(
+    df = map(strap, as_tibble),
+    fits = map(df, \(df) lm(price ~ stars + room_type, data = df)),
+    results = map(fits, broom::tidy)) |> 
+  select(.id, results) |> 
+  unnest(results) 
+```
+
+``` r
+airbnb_bootstrap_results |>
+  filter(term == "stars") |> 
+  ggplot(aes(x = estimate)) + 
+  geom_density()
+```
+
+![](bootstrap_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->

@@ -125,4 +125,77 @@ bootstrap_results |>
   )
 ```
 
+```{r}
+bootstrap_results |>
+  select(iter, results) |>
+  unnest(results) |>
+  filter(term == "x") |>
+  ggplot(aes(x = estimate)) +
+  geom_density()
+```
+
+```{r}
+bootstrap_results |>
+  select(iter, results) |>
+  unnest(results) |>
+  group_by(term) |>
+  summarise(
+    ci_lower = quantile(estimate, 0.025),
+    ci_upper = quantile(estimate, 0.975)
+  )
+```
+
+## do it again but faster
+```{r}
+sim_df_nonconst |>
+  bootstrap(n = 10) |>
+  mutate(
+    df = map(strap, as_tibble),
+    fits = map(df, \(df) lm(y ~ x, data = df)),
+    results = map(fits, broom::tidy)
+  ) |>
+  select(.id, results)|>
+  unnest(results)
+```
+
+
+```{r}
+data("nyc_airbnb")
+
+nyc_airbnb = 
+  nyc_airbnb |> 
+  mutate(stars = review_scores_location / 2) |> 
+  rename(
+    borough = neighbourhood_group,
+    neighborhood = neighbourhood) |> 
+  filter(borough != "Staten Island") |> 
+  drop_na(price, stars) |> 
+  select(price, stars, borough, neighborhood, room_type)
+```
+
+```{r}
+nyc_airbnb |> 
+  ggplot(aes(x = stars, y = price, color = room_type)) + 
+  geom_point() 
+```
+
+```{r}
+airbnb_bootstrap_results =
+  nyc_airbnb |>
+  filter(borough == "Manhattan") |> 
+  modelr::bootstrap(n = 10) |> 
+  mutate(
+    df = map(strap, as_tibble),
+    fits = map(df, \(df) lm(price ~ stars + room_type, data = df)),
+    results = map(fits, broom::tidy)) |> 
+  select(.id, results) |> 
+  unnest(results) 
+```
+
+```{r}
+airbnb_bootstrap_results |>
+  filter(term == "stars") |> 
+  ggplot(aes(x = estimate)) + 
+  geom_density()
+```
 
